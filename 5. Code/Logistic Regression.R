@@ -37,7 +37,109 @@ merge(tedRate, tedRate2, all=TRUE, fill = NA)
 
 #
 #
-#         Part 2: Logistical Regression
+#         Part 2: Data Manipulation
 #
 #
 
+
+length(tedRate)
+
+tedRateEvolution = tedRate
+i=1
+# Creates "tedRateEvolution", it's a vector with binary data (1 if the value increases at t+1, and 0 otherwise).
+for (i in 1:length(tedRate)) {
+  if (i==length(tedRate)) { # When we get to the last data entry, the output is always NA because we cannot compare it to a future value. Without this, there is an error message
+    tedRateEvolution[i, ] = NA
+  } else if (is.na(tedRate[i+1, ]) || is.na(tedRate[i, ])) { # If comparing with a NA, the output is automatically NA.
+    tedRateEvolution[i, ] = NA
+  } else if (coredata(tedRate[i+1, ]) > coredata(tedRate[i, ])) {
+    tedRateEvolution[i, ] = 1
+  } else {
+    tedRateEvolution[i, ] = 0
+  }
+}
+
+
+
+#
+#
+#         Part 3: Logistical Regression
+#
+#
+
+# Personal notes: 
+# 1) What's nice about logistic regression is that we can decide to invest only on those days we have 99.9% certainty. 
+# 2) We need to make sure there is no tail risk. i.e. if you invest with 99.9% certainty and you earn only 1.- but with 0.01% chance you loose 1m.-, it's not great
+
+# Initial parameters
+randomWeight=0.5 # The value of the initial weights. note: we can randomize this later on
+attributeVariables = matrix(rnorm(numberObservations * numberAttributeVariables, mean = 0, sd = 1), nrow = numberAttributeVariables, ncol = numberObservations)# !!!!!!!!! Need to define this from the data !!!!!!!!!!
+resultVector = rbinom(10, 1, 0.5) # !!!!!!!!! Need to define this from the data !!!!!!!!!!
+outerloop = 1 # How many times we go over the data
+eta = 0.1 # error adaptation coefficient
+
+# Key variables
+numberAttributeVariables = nrow(attributeVariables)
+numberObservations = ncol(attributeVariables)
+
+# Creating the weight vector
+weightVector = matrix(randomWeight, # define the vector of weights
+                      nrow = numberAttributeVariables+1, # we Create a weight for each dependent variable, plus one for w0.
+                      ncol= 1,
+                      byrow = TRUE
+                      )
+
+# naming the rows in weightVector
+weightRowNames = matrix("0", nrow = numberAttributeVariables+1, ncol= 1, byrow = TRUE)
+for (i in 1:nrow(weightRowNames)) {
+  weightRowNames[i, ] = paste("w", i-1, 
+                        sep="") # sep="" means that there is no space between w and the number
+}
+rownames(weightVector)=c(weightRowNames)
+
+
+# Creating the x vector
+x_0 = matrix(1, nrow = 1, ncol = numberObservations)
+dataSet = matrix(c(x_0, attributeVariables, resultVector), nrow = 2 + numberAttributeVariables, ncol = numberObservations, byrow = TRUE)
+
+# Assigns the right names to rows in dataSet
+dataSetRowNames = matrix("0", nrow = nrow(dataSet), ncol= 1, byrow = TRUE)
+for (i in 1:nrow(dataSet)) {
+  if (i == 1) {
+    dataSetRowNames[i, ] = "x0"
+  } else if (i < nrow(dataSet)) {
+    dataSetRowNames[i, ] = paste("x", i-1, sep="") # sep="" means that there is no space between w and the number
+  } else {
+    dataSetRowNames[i, ] = "y"
+  }
+}
+rownames(dataSet) = c(dataSetRowNames)
+
+
+# Defining the key variables for the Logistic Regression Algorithm
+index = matrix(0, 1, numberObservations * outerloop)
+indexPrediction = 0 
+weightMatrix = matrix(NA, nrow(weightVector),  numberObservations * outerloop) # WeightMatrix is used to record the weights through the various iterations.
+weightMatrix[,1] = weightVector
+rownames(weightMatrix)=c(weightRowNames)
+error = 0
+
+for (l in 1:outerloop){
+  for (i in 1 : numberObservations){
+     weightMatrix[,i] = weightVector
+    index[i] = 1/(1 + exp(-(sum(weightVector * dataSet[0 : numberAttributeVariables + 1, i]))))
+    if (index[i] < 0.5) {
+      indexPrediction[i] = 0
+     } else {indexPrediction[i] = 1
+    }
+    error[i] = dataSet[numberAttributeVariables + 2, i] - indexPrediction[i] # Alternativelly: error = dataSet[numberAttributeVariables+2, ] - index[i]
+    # Also tests whether our prediction was accurate and stores it in the 4th row of the matrix weight
+    #if ((index[i]<0) & (B[4,i]<0) | ((index[i])>=0) & (B[4,i]>=0)){weight[5,i+(l-1)*dataLength]=1}
+    #else{weight[4,i+(l-1)*dataLength]=0
+    #lastError=i+(l-1)*dataLength}
+    #Correction
+    weightVector =  weightVector +  eta * error[i] * index[i] * (1 - index[i]) * dataSet[0 : numberAttributeVariables + 1, i]
+  }
+}
+                
+                
