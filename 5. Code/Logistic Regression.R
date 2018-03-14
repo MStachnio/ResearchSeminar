@@ -72,11 +72,12 @@ for (i in 1:length(tedRate)) {
 # 2) We need to make sure there is no tail risk. i.e. if you invest with 99.9% certainty and you earn only 1.- but with 0.01% chance you loose 1m.-, it's not great
 
 # Initial parameters
-randomWeight=0.5 # The value of the initial weights. note: we can randomize this later on
+randomWeight = 0.5 # The value of the initial weights. note: we can randomize this later on
 attributeVariables = matrix(rnorm(numberObservations * numberAttributeVariables, mean = 0, sd = 1), nrow = numberAttributeVariables, ncol = numberObservations)# !!!!!!!!! Need to define this from the data !!!!!!!!!!
 resultVector = rbinom(10, 1, 0.5) # !!!!!!!!! Need to define this from the data !!!!!!!!!!
-outerloop = 1 # How many times we go over the data
+outerloop = 3 # How many times we go over the data
 eta = 0.1 # error adaptation coefficient
+flagPerceptronLearning = 0 # 0 if using an ADALINE-like learning algorithm, 1 if using an PERCEPTRON-like learning algorithm.
 
 # Key variables
 numberAttributeVariables = nrow(attributeVariables)
@@ -108,7 +109,7 @@ for (i in 1:nrow(dataSet)) {
   if (i == 1) {
     dataSetRowNames[i, ] = "x0"
   } else if (i < nrow(dataSet)) {
-    dataSetRowNames[i, ] = paste("x", i-1, sep="") # sep="" means that there is no space between w and the number
+    dataSetRowNames[i, ] = paste("x", i - 1, sep = "") # sep = "" means that there is no space between w and the number
   } else {
     dataSetRowNames[i, ] = "y"
   }
@@ -121,23 +122,28 @@ index = matrix(0, 1, numberObservations * outerloop)
 indexPrediction = 0 
 weightMatrix = matrix(NA, nrow(weightVector),  numberObservations * outerloop) # WeightMatrix is used to record the weights through the various iterations.
 weightMatrix[,1] = weightVector
-rownames(weightMatrix)=c(weightRowNames)
+rownames(weightMatrix) = c(weightRowNames)
 error = 0
+predictionAccuracy = matrix(NA, 1,  numberObservations * outerloop)
+lastError = 0 
 
+# Core Algorithm: reweighting based on observation data
 for (l in 1:outerloop){
   for (i in 1 : numberObservations){
-     weightMatrix[,i] = weightVector
+     weightMatrix[,i + (l - 1) * numberObservations] = weightVector
     index[i] = 1/(1 + exp(-(sum(weightVector * dataSet[0 : numberAttributeVariables + 1, i]))))
     if (index[i] < 0.5) {
       indexPrediction[i] = 0
      } else {indexPrediction[i] = 1
     }
-    error[i] = dataSet[numberAttributeVariables + 2, i] - indexPrediction[i] # Alternativelly: error = dataSet[numberAttributeVariables+2, ] - index[i]
-    # Also tests whether our prediction was accurate and stores it in the 4th row of the matrix weight
-    #if ((index[i]<0) & (B[4,i]<0) | ((index[i])>=0) & (B[4,i]>=0)){weight[5,i+(l-1)*dataLength]=1}
-    #else{weight[4,i+(l-1)*dataLength]=0
-    #lastError=i+(l-1)*dataLength}
-    #Correction
+    error[i] = dataSet[numberAttributeVariables + 2, i] - flagPerceptronLearning * indexPrediction[i] + (-1 + flagPerceptronLearning) * index[i] # flagPerceptronLearning defines whether we use an ADALINE or Perceptron-like algorithm
+    # Also tests whether our prediction was accurate and stores it in predictionAccuracy
+    if ((index[i] < 0.5) & (dataSet[numberAttributeVariables + 2, i] < 0.5) | (( index[i]) >= 0.5) & (dataSet[numberAttributeVariables + 2, i] >= 0.5)) {
+      predictionAccuracy[, i + (l - 1) * numberObservations] = 1
+      } else {
+        predictionAccuracy[, i + (l - 1) * numberObservations] = 0
+        lastError = i + (l - 1) * numberObservations
+      }
     weightVector =  weightVector +  eta * error[i] * index[i] * (1 - index[i]) * dataSet[0 : numberAttributeVariables + 1, i]
   }
 }
