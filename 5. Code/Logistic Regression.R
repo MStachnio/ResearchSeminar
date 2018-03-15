@@ -7,33 +7,42 @@ library(zoo)
 #
 #
 
-
-
-# Opening the data
-csvFilePathTedRate = "/Users/Michal/Dropbox/UNISG/16. Research Seminar/4. Data/TED Spread.csv"
-tedRate = read.csv(file=csvFilePathTedRate, header=TRUE, sep=",")
-
-# Replaces all "." as "NA"
-tedRate[tedRate == "."] <- NA
-
-# Creates a sequence of dates
-startingDate = "2000-01-01"
-endDate = "2018-03-05"
-dates = seq(as.Date(startingDate), as.Date(endDate), by=1)
-
+# Opening the core data file
+csvFilePathCoreData = "/Users/Michal/Dropbox/UNISG/16. Research Seminar/4. Data/New_Data.csv"
+coreData = read.csv(file=csvFilePathCoreData, header=TRUE, sep=",")
+coreData[coreData == ""] <- NA # replace all empty spaces with NA
 # OPTIONAL: Truncating the size for testing
-tedRate = tedRate[1:20, c('DATE', 'TEDRATE')]
-dates = dates[1:29]
-
+coreData = coreData[1:20, c('Time', 'SP_500', 'SP_500_Volume')]
 # Create a Timeseries of tedRate indexed by date
-tedRate$DATE = as.Date(tedRate$DATE, format="%Y-%m-%d")
-tedRate = xts(tedRate[,2], order.by = tedRate$DATE)
+coreData$Time = as.Date(coreData$Time, format="%d.%m.%Y") # Bug: output pour les années c'est 0010 à la place de 2010.
+coreData = xts(coreData[,2:3], order.by = coreData$Time)
 
-#Converts the data into numeric value (somehow xts automatically converts it into characters)
-storage.mode(tedRate) <- "numeric"
 
-tedRate2 = lag(tedRate, k=1, na.pad =FALSE)
-merge(tedRate, tedRate2, all=TRUE, fill = NA)
+# # Opening the data
+# csvFilePathTedRate = "/Users/Michal/Dropbox/UNISG/16. Research Seminar/4. Data/TED Spread.csv"
+# tedRate = read.csv(file=csvFilePathTedRate, header=TRUE, sep=",")
+# 
+# # Replaces all "." as "NA"
+# tedRate[tedRate == "."] <- NA
+# 
+# # Creates a sequence of dates
+# startingDate = "2000-01-01"
+# endDate = "2018-03-05"
+# dates = seq(as.Date(startingDate), as.Date(endDate), by=1)
+# 
+# # OPTIONAL: Truncating the size for testing
+# tedRate = tedRate[1:20, c('DATE', 'TEDRATE')]
+# dates = dates[1:29]
+# 
+# # Create a Timeseries of tedRate indexed by date
+# tedRate$DATE = as.Date(tedRate$DATE, format="%Y-%m-%d")
+# tedRate = xts(tedRate[,2], order.by = tedRate$DATE)
+# 
+# #Converts the data into numeric value (somehow xts automatically converts it into characters)
+# storage.mode(tedRate) <- "numeric"
+# 
+# tedRate2 = lag(tedRate, k=1, na.pad =FALSE)
+# merge(tedRate, tedRate2, all=TRUE, fill = NA)
 
 #
 #
@@ -41,23 +50,26 @@ merge(tedRate, tedRate2, all=TRUE, fill = NA)
 #
 #
 
+# Creating the S&P evolution vector
 
-length(tedRate)
 
-tedRateEvolution = tedRate
-i=1
-# Creates "tedRateEvolution", it's a vector with binary data (1 if the value increases at t+1, and 0 otherwise).
-for (i in 1:length(tedRate)) {
-  if (i==length(tedRate)) { # When we get to the last data entry, the output is always NA because we cannot compare it to a future value. Without this, there is an error message
-    tedRateEvolution[i, ] = NA
-  } else if (is.na(tedRate[i+1, ]) || is.na(tedRate[i, ])) { # If comparing with a NA, the output is automatically NA.
-    tedRateEvolution[i, ] = NA
-  } else if (coredata(tedRate[i+1, ]) > coredata(tedRate[i, ])) {
-    tedRateEvolution[i, ] = 1
-  } else {
-    tedRateEvolution[i, ] = 0
-  }
-}
+
+# length(tedRate)
+# 
+# tedRateEvolution = tedRate
+# i=1
+# # Creates "tedRateEvolution", it's a vector with binary data (1 if the value increases at t+1, and 0 otherwise).
+# for (i in 1:length(tedRate)) {
+#   if (i==length(tedRate)) { # When we get to the last data entry, the output is always NA because we cannot compare it to a future value. Without this, there is an error message
+#     tedRateEvolution[i, ] = NA
+#   } else if (is.na(tedRate[i+1, ]) || is.na(tedRate[i, ])) { # If comparing with a NA, the output is automatically NA.
+#     tedRateEvolution[i, ] = NA
+#   } else if (coredata(tedRate[i+1, ]) > coredata(tedRate[i, ])) {
+#     tedRateEvolution[i, ] = 1
+#   } else {
+#     tedRateEvolution[i, ] = 0
+#   }
+# }
 
 
 
