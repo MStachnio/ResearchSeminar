@@ -117,7 +117,7 @@ colnames(spWeightedAverage) = "spWeightedAverage"
 
 
 # Initial parameters
-randomWeight = 0.5 # The value of the initial weights. note: we can randomize this later on
+randomWeight = 0.00005 # The value of the initial weights. note: we can randomize this later on
 attributeVariables = merge(spSimpleMovingAverage, spWeightedAverage) # matrix(rnorm(numberObservations * numberAttributeVariables, mean = 0, sd = 1), nrow = numberAttributeVariables, ncol = numberObservations)# !!!!!!!!! Need to define this from the data !!!!!!!!!!
 resultVector = spEvolution # rbinom(10, 1, 0.5) # !!!!!!!!! Need to define this from the data !!!!!!!!!!
 outerloop = 1 # How many times we go over the data
