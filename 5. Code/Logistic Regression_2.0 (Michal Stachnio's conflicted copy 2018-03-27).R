@@ -45,8 +45,6 @@ library(tseries)
 
 # Opening the core data file
 # Michal Path: csvFilePathCoreData = "/Users/Michal/Dropbox/UNISG/16. Research Seminar/4. Data/New_Data.csv"
-
-
 csvFilePathCoreData = "/Users/Michal/Dropbox/UNISG/16. Research Seminar/4. Data/New_Data.csv"
 coreData = read.csv(file = csvFilePathCoreData, # path of the file
                     header = TRUE, # include the headers
@@ -255,7 +253,7 @@ ggplot(change_risk, aes(x = time(change_risk))) +
 Gold = coreData$Gold
 change_gold = diff(Gold)/lag(Gold) # no laging --> to be approved by Jérôme
 ggplot(change_gold, aes(x = time(change_gold))) + 
-  geom_line(aes(y = change_gold,colour = "change_gold")) +
+  geom_line(aes(y = change_gold, colour = "change_gold")) +
   labs(x = "Time ", y = "") + 
   scale_color_discrete(name = "Legend") 
 hist <- ggplot(change_gold, aes(x = change_gold)) +
