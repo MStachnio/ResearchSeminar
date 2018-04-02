@@ -108,22 +108,23 @@ NamingCols = function(String, data, startingValue) {
 # Part 1: Creating the dataFrame-----------------------------------------------------------------------------------------------------
 
 #setwd("~/Desktop/MBF Second Semester/Research Seminar/Regression")
-#setwd("~/Users/Michal/Dropbox/UNISG/16. Research Seminar/New_Data.csv")
 #install.packages("TTR")
 
 # Opening the core data file
 # Michal Path: 
-#csvFilePathCoreData = "/Users/Michal/Dropbox/UNISG/16. Research Seminar/4. Data/New_Data.csv"
-#coreData = read.csv(file = csvFilePathCoreData, # path of the file
- #  header = TRUE, # include the headers
- # sep = ",") # How the data is separated
-#coreData[coreData == ""] <- NA # replace all empty spaces with NA =====> J'arrive pas √† ouvrir a modifer les colones en CSV
+csvFilePathCoreData = "/Users/Michal/Dropbox/UNISG/16. Research Seminar/4. Data/New_Data.csv"
+coreData = read.csv(file = csvFilePathCoreData, # path of the file
+ header = TRUE, # include the headers
+sep = ",") # How the data is separated
+coreData[coreData == ""] <- NA # replace all empty spaces with NA =====> J'arrive pas √† ouvrir a modifer les colones en CSV
+setwd("~/Users/Michal/Dropbox/UNISG/16. Research Seminar")
+load("Output.RData")
 
 
 #J√©r√¥me Path:
- setwd("~/Dropbox/16. Research Seminar/4. Data/4.1 New_Data")
- csvFilePathCoreData= ("~/Dropbox/16. Research Seminar/4. Data/New_Data.csv")
- coreData <- read_excel("~/Dropbox/16. Research Seminar/4. Data/New_Data.xlsx")
+ # setwd("~/Dropbox/16. Research Seminar/4. Data/4.1 New_Data")
+ # csvFilePathCoreData= ("~/Dropbox/16. Research Seminar/4. Data/New_Data.csv")
+ # coreData <- read_excel("~/Dropbox/16. Research Seminar/4. Data/New_Data.xlsx")
 
 # OPTIONAL: Truncating the size for testing
 coreData = coreData[1:nrow(coreData),]
@@ -614,8 +615,8 @@ MLP = function(eta, numberNeurons, dataSet, outerloop, initialHiddenWeights, ini
 
 # We simulate the optimisation algorithm over random weights to find the weights with the best potential
 # Initial parameters for the testing
-outerloop = 40 # Should be low, we are trying to find a good spot to start the optimisation
-numberTests = 10
+outerloop = 150 # Should be low, we are trying to find a good spot to start the optimisation
+numberTests = 100
 numberNeurons = 30
 stdRandomGeneration = 1
 dataSet = Data_Learning
@@ -647,7 +648,7 @@ errorIndexing_1 = BestGuessMLPLearning$errorIndexing
 # Part 4b:Learning - Optimising our best guess ------------------------------------------------------------------------------------------
 
 # Initial Parameters are the same as when we tried to find the "best guess"
-outerloop = 100 # should be 5000
+outerloop = 5000 # should be 5000
 # Carry forward our "best guess weights":
 initialHiddenWeights =  BestGuessMLPLearning$hiddenLayerWeights
 initialOutputWeights = BestGuessMLPLearning$outputLayerWeights
@@ -659,7 +660,7 @@ ResultMLPLearning$success
 errorIndexing_2 = ResultMLPLearning$errorIndexing
 
 # Final optimisation without Momentum Acceleration:
-outerloop = 7000
+outerloop = 5000
 initialHiddenWeights = ResultMLPLearning$hiddenLayerWeights
 initialOutputWeights = ResultMLPLearning$outputLayerWeights
 momentumConstant = 0
@@ -814,88 +815,92 @@ conditionalReturnTS = conditionalReturnTS[complete.cases(conditionalReturnTS), ]
 
 # hist when index is above a certain threshold:
 threshold = 0.8 # note: between 0.5 and 1
+numberBreaks = 8
 up = conditionalReturnTS[conditionalReturnTS[,2] > threshold ]
-hist(up[,4], breaks = 5)
+hist(up[,4], breaks = numberBreaks)
 mean(up[,4])
 # hist when the index is below the threshold
 down = conditionalReturnTS[conditionalReturnTS[,2] < (1 - threshold) ]
-hist(down[,4], breaks = 5)
+hist(down[,4], breaks = numberBreaks)
 mean(down[,4])
 # hist when index is between the threshold
 middle = conditionalReturnTS[conditionalReturnTS[,2] > (1 - threshold)]
 middle = conditionalReturnTS[conditionalReturnTS[,2] < threshold]
-hist(middle[,4], breaks = 5)
+hist(middle[,4], breaks = numberBreaks)
 mean(middle[,4])
 
-#Recombine the data and remove the NA:
-coreData_Testing$Constant = xts(x = rep(1, length(coreData_Testing$spEvolution)), order.by = index(coreData_Testing))
-
-# Inputs
-attributeVariablesTesting = Data_Testing[, 2:ncol(Data)] # matrix(rnorm(numberObservations * numberAttributeVariables, mean = 0, sd = 1), nrow = numberAttributeVariables, ncol = numberObservations)# !!!!!!!!! Need to define this from the data !!!!!!!!!!
-resultVectorTesting = Data_Testing[, 1] # rbinom(10, 1, 0.5) # !!!!!!!!! Need to define this from the data !!!!!!!!!! => This the vector of return of the SP&500
-weightVectorTesting = weightVector
-
-# Variabes calculation
-x_0_Testing = xts(rep(1, length(resultVectorTesting)), order.by = index(resultVectorTesting))
-dataSetTesting = merge(x_0_Testing, attributeVariablesTesting, resultVectorTesting)
-numberObservationsTesting = nrow(dataSetTesting)
-numberAttributeVariablesTesting = ncol(dataSetTesting) - 2
-indexTesting  = matrix(NA, 1, numberObservationsTesting)
-predictionTesting = matrix(NA, 1, numberObservationsTesting)
-predictionAccuracyTesting = matrix(NA, 1, numberObservationsTesting)
-
-# Testing the prediction of the model
-for (i in 1 : numberObservationsTesting) {
-  indexTesting[i] = 1/(1 + exp(-(sum(coredata(dataSetTesting[i, 0:numberAttributeVariablesTesting + 1]) %*% weightVectorTesting )))) 
-  if (indexTesting[i] < 0.5) {
-    predictionTesting[i] = 0
-  } else { 
-    predictionTesting[i] = 1
-  }
-  # Also tests whether our prediction was accurate and stores it in predictionAccuracy
-  if ((indexTesting[i] < 0.5) & (dataSetTesting[i, numberAttributeVariablesTesting + 2] < 0.5) | (( indexTesting[i]) >= 0.5) & (dataSetTesting[i, numberAttributeVariablesTesting + 2] >= 0.5)) {
-    predictionAccuracyTesting[, i] = 1
-  } else {
-    predictionAccuracyTesting[, i] = 0
-  }
-}
-
-# Transforming some results into time series
-predictionAccuracyTesting = xts(x = t(predictionAccuracyTesting), order.by = index(dataSetTesting))
-indexTesting = xts(x = t(indexTesting), order.by = index(dataSetTesting))
-
-# Plotting results:
-ggplot(predictionAccuracyTesting, aes(x = time(predictionAccuracyTesting))) + #aes() creates a mapping of variables to various parts of the plot
-  geom_line(aes(y = predictionAccuracyTesting, colour = "predictionAccuracyTesting")) +
-  labs(x = "Time", y = "") + #no axes labels
-  scale_color_discrete(name = "Legend") 
-
-ggplot(indexTesting, aes(x = time(indexTesting))) + #aes() creates a mapping of variables to various parts of the plot
-  geom_line(aes(y = indexTesting, colour = "indexTesting")) +
-  labs(x = "Time", y = "") + #no axes labels
-  scale_color_discrete(name = "Legend") 
 
 
-
-# Most important value !
-successRatio = sum(predictionAccuracyTesting)/nrow(dataSetTesting)
-print(successRatio)
-
-
-# Values where we are kinda sure
-extremeValues = 0.2
-Bets = indexTesting[(indexTesting[] > 1 - extremeValues) | (indexTesting[] < extremeValues)]
-Result = predictionAccuracyTesting[(indexTesting[] > 1 - extremeValues) | (indexTesting[] < extremeValues)]
-Bets = round(Bets, digits = 0)
-Success = 0
-for (i in 1:nrow(Bets)) {
-  if (Bets[i] == Result[i]) {
-    Success = Success + 1
-  }
-}
-Success/nrow(Bets)
-
-
-
-
-
+# 
+# #Recombine the data and remove the NA:
+# coreData_Testing$Constant = xts(x = rep(1, length(coreData_Testing$spEvolution)), order.by = index(coreData_Testing))
+# 
+# # Inputs
+# attributeVariablesTesting = Data_Testing[, 2:ncol(Data)] # matrix(rnorm(numberObservations * numberAttributeVariables, mean = 0, sd = 1), nrow = numberAttributeVariables, ncol = numberObservations)# !!!!!!!!! Need to define this from the data !!!!!!!!!!
+# resultVectorTesting = Data_Testing[, 1] # rbinom(10, 1, 0.5) # !!!!!!!!! Need to define this from the data !!!!!!!!!! => This the vector of return of the SP&500
+# weightVectorTesting = weightVector
+# 
+# # Variabes calculation
+# x_0_Testing = xts(rep(1, length(resultVectorTesting)), order.by = index(resultVectorTesting))
+# dataSetTesting = merge(x_0_Testing, attributeVariablesTesting, resultVectorTesting)
+# numberObservationsTesting = nrow(dataSetTesting)
+# numberAttributeVariablesTesting = ncol(dataSetTesting) - 2
+# indexTesting  = matrix(NA, 1, numberObservationsTesting)
+# predictionTesting = matrix(NA, 1, numberObservationsTesting)
+# predictionAccuracyTesting = matrix(NA, 1, numberObservationsTesting)
+# 
+# # Testing the prediction of the model
+# for (i in 1 : numberObservationsTesting) {
+#   indexTesting[i] = 1/(1 + exp(-(sum(coredata(dataSetTesting[i, 0:numberAttributeVariablesTesting + 1]) %*% weightVectorTesting )))) 
+#   if (indexTesting[i] < 0.5) {
+#     predictionTesting[i] = 0
+#   } else { 
+#     predictionTesting[i] = 1
+#   }
+#   # Also tests whether our prediction was accurate and stores it in predictionAccuracy
+#   if ((indexTesting[i] < 0.5) & (dataSetTesting[i, numberAttributeVariablesTesting + 2] < 0.5) | (( indexTesting[i]) >= 0.5) & (dataSetTesting[i, numberAttributeVariablesTesting + 2] >= 0.5)) {
+#     predictionAccuracyTesting[, i] = 1
+#   } else {
+#     predictionAccuracyTesting[, i] = 0
+#   }
+# }
+# 
+# # Transforming some results into time series
+# predictionAccuracyTesting = xts(x = t(predictionAccuracyTesting), order.by = index(dataSetTesting))
+# indexTesting = xts(x = t(indexTesting), order.by = index(dataSetTesting))
+# 
+# # Plotting results:
+# ggplot(predictionAccuracyTesting, aes(x = time(predictionAccuracyTesting))) + #aes() creates a mapping of variables to various parts of the plot
+#   geom_line(aes(y = predictionAccuracyTesting, colour = "predictionAccuracyTesting")) +
+#   labs(x = "Time", y = "") + #no axes labels
+#   scale_color_discrete(name = "Legend") 
+# 
+# ggplot(indexTesting, aes(x = time(indexTesting))) + #aes() creates a mapping of variables to various parts of the plot
+#   geom_line(aes(y = indexTesting, colour = "indexTesting")) +
+#   labs(x = "Time", y = "") + #no axes labels
+#   scale_color_discrete(name = "Legend") 
+# 
+# 
+# 
+# # Most important value !
+# successRatio = sum(predictionAccuracyTesting)/nrow(dataSetTesting)
+# print(successRatio)
+# 
+# 
+# # Values where we are kinda sure
+# extremeValues = 0.2
+# Bets = indexTesting[(indexTesting[] > 1 - extremeValues) | (indexTesting[] < extremeValues)]
+# Result = predictionAccuracyTesting[(indexTesting[] > 1 - extremeValues) | (indexTesting[] < extremeValues)]
+# Bets = round(Bets, digits = 0)
+# Success = 0
+# for (i in 1:nrow(Bets)) {
+#   if (Bets[i] == Result[i]) {
+#     Success = Success + 1
+#   }
+# }
+# Success/nrow(Bets)
+# 
+# 
+# 
+# 
+# 
