@@ -1,14 +1,18 @@
-
 # Notes --------------------------------------------------------------------------------------------------------------
 # Date: 27.03.2018
-# Authors: Michal Stachnio & J√©r√¥me Voelke
+# Authors: Michal Stachnio & Jérôme Voelke
 
 #To-Do log:
+# 1) add input variables => line 446 NEED to be modified to account for the new variables
+# 4) How should we use the RSI ?
+# 6) MACD outputs two columns. I assumed we need only the first one and did this change in part 2
+# 7) we would need to deduct the risk free rate to all return variables.
 
-
-# 3) Add a better global maximum identification method combining brute force and optimisation algorithms
-# 4) Add table on the results of the Testing
-# 5) create a graph that shows how our errors in prediction grow (i.e. using )
+#Up-Date Version 2.0
+# 1) I added a buy signal attribute variables which takes the value 1 when the 5 day MA cross the 10 day MA
+# 2) I added a risk attribute varibales which is the change in percentage in comparaison to the previous day for the principale risk component
+# 3) The weight for the buy signal is positive and negative for risk which appears to be in line with the theory.
+# 4) The most urgent task is to determine how good our model is in terme of prediction
 
 # Notes concerning standardizing:
 # In order to standardize our data we can either - A) Standardize B) Normalize 
@@ -18,7 +22,6 @@
 # Personal notes: 
 # 1) What's nice about logistic regression is that we can decide to invest only on those days we have 99.9% certainty. 
 # 2) We need to make sure there is no tail risk. i.e. if you invest with 99.9% certainty and you earn only 1.- but with 0.01% chance you loose 1m.-, it's not great
-
 
 # Importing Libraries & Usefull functions: --------------------------------------------------------------------------------------------------------------
 
@@ -94,7 +97,6 @@ NamingRows = function(String, data, startingValue) {
   rownames(data) = c(dataNames)
   return (data)
 }
-
 NamingCols = function(String, data, startingValue) {
   dataNames = matrix("0", nrow = 1, ncol = ncol(data), byrow = TRUE)
   for (i in 1:ncol(dataNames)) {
@@ -113,36 +115,31 @@ NamingCols = function(String, data, startingValue) {
 
 # Opening the core data file
 # Michal Path: 
-#csvFilePathCoreData = "/Users/Michal/Dropbox/UNISG/16. Research Seminar/4. Data/New_Data.csv"
-#coreData = read.csv(file = csvFilePathCoreData, # path of the file
- #  header = TRUE, # include the headers
- # sep = ",") # How the data is separated
-#coreData[coreData == ""] <- NA # replace all empty spaces with NA =====> J'arrive pas √† ouvrir a modifer les colones en CSV
+csvFilePathCoreData = "/Users/Michal/Dropbox/UNISG/16. Research Seminar/4. Data/New_Data.csv"
+coreData = read.csv(file = csvFilePathCoreData, # path of the file
+                   header = TRUE, # include the headers
+                   sep = ",") # How the data is separated
+coreData[coreData == ""] <- NA # replace all empty spaces with NA =====> J'arrive pas à ouvrir a modifer les colones en CSV
 
 
-#J√©r√¥me Path:
- setwd("~/Dropbox/16. Research Seminar/4. Data/4.1 New_Data")
- csvFilePathCoreData= ("~/Dropbox/16. Research Seminar/4. Data/New_Data.csv")
- coreData <- read_excel("~/Dropbox/16. Research Seminar/4. Data/New_Data.xlsx")
+#Jérôme Path:
+# setwd("~/Dropbox/16. Research Seminar/4. Data/4.1 New_Data")
+# csvFilePathCoreData= ("~/Dropbox/16. Research Seminar/4. Data/4.1 New_Data/New_Data.csv")
+#coreData <- read_excel("~/Dropbox/16. Research Seminar/4. Data/4.1 New_Data/New_Data.xlsx")
+
 
 # OPTIONAL: Truncating the size for testing
-coreData = coreData[1:nrow(coreData),]
+coreData = coreData[168:nrow(coreData),] #Missing value in 2010-2011 => start in 2012
 
 # Create a Timeseries of coreData indexed by date
-coreData$Time = as.Date(coreData$Time, format = "%d.%m.%Y") # Bug: output pour les ann√©es c'est 0010 √† la place de 2010.
+coreData$Time = as.Date(coreData$Time, format = "%d.%m.%Y") # Bug: output pour les années c'est 0010 à la place de 2010.
 coreData = xts(coreData[, 2:ncol(coreData)], order.by = coreData$Time)
-
-#Select Data from 2003:
-coreData = coreData["0011-01-02/",]
 
 #Graph of the SP 500
 ggplot(coreData, aes(x=time(coreData))) + #aes() creates a mapping of variables to various parts of the plot
   geom_line(aes(y=coreData$SP_500,colour = "SP_500")) +
   labs(x="Time ", y="") + #no axes labels
   scale_color_discrete(name="Legend") 
-
-
-
 
 # Part 2a: Data Manipulation -----------------------------------------------------------------------------------------------------
 
@@ -176,6 +173,7 @@ ggplot(cumulativeSP, aes(x=time(cumulativeSP))) + #aes() creates a mapping of va
   scale_color_discrete(name="Legend")
 
 
+
 # Technical Indicators -------
 
 
@@ -192,7 +190,7 @@ SP_WMA_10_Normalized = normalize(SP_WMA_10_return)
 
 #hist <- ggplot(SP_WMA_10_return, aes(x = SP_WMA_10_return)) +
 #  geom_histogram(aes(y = ..density..), bins = 20,
-#color = "black", fill = "white")
+                 #color = "black", fill = "white")
 
 ggplot(SP_WMA_10_Normalized, aes(x = time(SP_WMA_10_Normalized))) + 
   geom_line(aes(y = SP_WMA_10_Normalized,colour = "Risk")) +
@@ -248,7 +246,7 @@ Signal = xts(Signal_SMA, order.by = time(Diff_SMA)) # create the XTS object
 # No need to normalize Signal because it already between 0 and 1
 
 #Plot the Moving Average (5 and 10), the difference, and the signal 
-plot1 = ggplot(merge(SP_SMA_5, SP_SMA_10), aes(x = time(merge(SP_SMA_5, SP_SMA_10)))) +  # --> @J√©r√¥me: J''ais du d√©placer ce code et mtn √ßa marche pas psk Data est pas encore d√©fini.
+plot1 = ggplot(merge(SP_SMA_5, SP_SMA_10), aes(x = time(merge(SP_SMA_5, SP_SMA_10)))) +  # --> @Jérôme: J''ais du déplacer ce code et mtn ça marche pas psk Data est pas encore défini.
   geom_line(aes(y = SP_SMA_5, colour = "SP_500_SMA_5")) +
   geom_line(aes(y = SP_SMA_10, colour = "SP_500_SMA_10")) +
   labs(x = "Time", y = "") +
@@ -312,7 +310,7 @@ CCI_15_Normalized = normalize(CCI_15)
 
 # Macro Indicators-------
 
-# 9) Change_risk --> @J√©r√¥me: J''ais du d√©placer ce code et mtn √ßa marche pas psk Data est pas encore d√©fini.
+# 9) Change_risk --> @Jérôme: J''ais du déplacer ce code et mtn ça marche pas psk Data est pas encore défini.
 risk = coreData$P1_risk
 
 ggplot(risk, aes(x = time(risk))) + 
@@ -349,7 +347,7 @@ change_gold_normalized = normalize(change_gold )
 # 11) Vix Variable
 VIX = coreData$Vix
 
-change_VIX = diff(VIX)/lag(VIX) # no laging --> to be approved by J√©r√¥me
+change_VIX = diff(VIX)/lag(VIX) # no laging --> to be approved by Jérôme
 ggplot(change_VIX, aes(x = time(change_VIX))) + 
   geom_line(aes(y = change_VIX, colour = "change_VIX")) +
   labs(x = "Time ", y = "") + 
@@ -373,41 +371,37 @@ ggplot(change_Currency, aes(x = time(change_Currency))) +
 change_Currency = change_Currency[!is.na((change_Currency[, 1]))]
 change_Currency_normalized = normalize(change_Currency)
 
-#13) Risk free rate:
 
-RF = 100*coreData$RF
-change_RF = diff(RF)/lag(RF)
-
-ggplot(change_RF, aes(x = time(change_RF))) + 
-  geom_line(aes(y = change_RF, colour = "change_RF")) +
-  labs(x = "Time ", y = "") + 
-  scale_color_discrete(name = "change_RF")
-
-change_RF[!is.finite(change_RF)] = NA
-change_RF = change_RF[!is.na((change_RF[, 1]))]
-change_RF_normalized = normalize(change_RF)
 
 
 # Part 2b: Merge data, remove NAs, divide training/testing --------------------------------------------------------------------------------
 
 x_0 = xts(rep(1, length(spEvolution)), order.by = index(spEvolution))
 
+# @Jérôme: J'ais mis en comment psk certaines des données marchainet pas chez moi et je voulais tester.
+# Data = merge(x_0,SP_WMA_10_Normalized, SP_SMA_5_Normalized, SP_SMA_10_Normalized ,
+#              Momentum_5_Normalized ,RSI_15, MACD_Normalized, CCI_15_Normalized, Signal, change_risk_normalized, 
+#              change_gold_normalized, change_VIX_normalized, change_Currency_normalized, spEvolution)
 Data = merge(x_0, SP_WMA_10_Normalized, SP_SMA_5_Normalized, SP_SMA_10_Normalized ,
-             Momentum_5_Normalized, RSI_15, MACD_Normalized, CCI_15_Normalized, Signal, change_risk_normalized, 
-             change_gold_normalized, change_VIX_normalized, change_Currency_normalized, change_RF_normalized, spEvolution)
+             Momentum_5_Normalized ,RSI_15, MACD_Normalized, CCI_15_Normalized, Signal, change_risk_normalized, 
+             change_gold_normalized, change_VIX_normalized, spEvolution)
+
 
 
 Data = Data[complete.cases(Data), ] #remove the N.A from the XTS object
-
+# @Jérôme: J'ais mis en comment psk certaines des données marchainet pas chez moi et je voulais tester.
+# colnames(Data) = c("x_0","SP_WMA_10_return", "SP_SMA_5_return", "SP_SMA_10_return",
+#                        "Momentum_5", "RSI_15", "MACD", "CCI_15", "Signal", "change_risk",
+#                        "change_gold", "change_VIX", "change_Currency","spEvolution") 
 colnames(Data) = c("x_0", "SP_WMA_10_return", "SP_SMA_5_return", "SP_SMA_10_return",
                    "Momentum_5", "RSI_15", "MACD", "CCI_15", "Signal", "change_risk",
-                   "change_gold", "change_VIX","change_Currency","change_RF_normalized","spEvolution") 
+                   "change_gold", "change_VIX","spEvolution") 
 
 
 #Nettoyage: 
 #Remove Macro indicators:
 remove(change_Currency_normalized,change_Currency,change_VIX,change_VIX_normalized,change_gold, change_gold_normalized,
-       change_risk,change_risk_normalized, risk, VIX, Currency ,change_RF_normalized,change_RF, RF,Gold)
+        change_risk,change_risk_normalized, risk, VIX, Currency , Gold)
 
 #Remove Technical indicators:
 remove(RSI_15,Signal,SP_SMA_10,SP_SMA_10_Normalized,MACD,Momentum_5,SP_SMA_10_return,SP_SMA_5,SP_WMA_10,Diff_SMA, SP_WMA_10,
@@ -417,11 +411,12 @@ remove(RSI_15,Signal,SP_SMA_10,SP_SMA_10_Normalized,MACD,Momentum_5,SP_SMA_10_re
 #Remove Plot:
 remove(hist,plot1,plot2,plot3)
 
+#J'ai fait jusque la :
 
-
+                      
 # Parameter of training
 ParameterSettingBoundry = 0.1 # 0.1 means 10% of the dataSet is used for this
-ratioTraining = 0.3 # 0.5 means that 40% are used for training (assuming 10% are used for parameter Setting)    
+ratioTraining = 0.5 # 0.5 means that 40% are used for training (assuming 10% are used for parameter Setting)    
 
 #Divided into part the whole dataset, learning and testing stet: => more simple , avoid to recalculate all the depende variables
 # parameterSettingLimit = round(nrow(Data) * ParameterSettingBoundry, digits = 0)
@@ -431,25 +426,33 @@ Data_Learning = Data[0:trainingLimit,]
 Data_Testing = Data[(trainingLimit + 1):nrow(Data), ]
 
 
-# Part 3: Defining MLP functions-----------------------------------------------------------------------------------------------------
+# Part 3a: Defining MLP and PLR functions-----------------------------------------------------------------------------------------------------
+
+# Initial parameters testing 
+numberNeurons = 30
+initialHiddenWeights = rnorm(n = (ncol(Data_Learning) - 1) * (numberNeurons + 1), mean = 0, sd = 1) # The value of the initial weights.
+initialOutputWeights = rnorm(n = numberNeurons + 1, mean = 0, sd = 1)
+outerloop = 2 # How many times we go over the data
+eta = 0.1 # error adaptation coefficient
+flagPerceptronLearning = 1 # 0 if using an ADALINE-like learning algorithm, 1 if using an PERCEPTRON-like learning algorithm.
+learningFlag = 1
+momentumConstant = 0.4
 
 
-# Multiple Layer Perceptron
 MLP = function(eta, numberNeurons, dataSet, outerloop, initialHiddenWeights, initialOutputWeights, learningFlag, momentumConstant) {
   
   # Description: 1 Hidden Layer Perceptron Neural Network using Logistic Regression 
   #             as activation function with gradient descent optimisation. 
   
-  # Authors: Michal Stachnio & J√©r√¥me Voelke
+  # Authors: Michal Stachnio & Jérôme Voelke
   
   # Variables:
-  #           eta                 = Learning rate
-  #           numberNeurons       = number of neurons in the hiddenLayer
-  #           dataSet             = Observations. Need to have x_0 = 1 as first column and the result (y) as the last column
-  #           outerloop           = number of times the network learns over the dataSet. A higher number is advised due to slow learning
-  #           learningFlag        = if 1, the weights are adjusted against the data
-  #           momentumConstant    = Used to increase the learning speed of the algorithm
-  #           AdalineLearningFlag = If 0, weights are updated only when the algorithm guesses wrong
+  #           eta               = Learning rate
+  #           numberNeurons     = number of neurons in the hiddenLayer
+  #           dataSet           = Observations. Need to have x_0 = 1 as first column and the result (y) as the last column
+  #           outerloop         = number of times the network learns over the dataSet. A higher number is advised due to slow learning
+  #           learningFlag      = if 1, the weights are adjusted against the data
+  #           momentumConstant  = Used to increase the learning speed of the algorithm
   
   # Outputs:
   #           success            = rate with which the outputed weight are able to predict the target variable accuratelly
@@ -469,6 +472,7 @@ MLP = function(eta, numberNeurons, dataSet, outerloop, initialHiddenWeights, ini
   outputLayerWeights = matrix(initialOutputWeights, nrow = numberNeurons + 1, ncol = 1, byrow = FALSE)
   outputLayerWeights = NamingRows("n", outputLayerWeights, 0)
   
+  
   # Hidden Index 
   hiddenIndex = matrix(0, nrow = nrow(dataSet), ncol = numberNeurons + 1)
   hiddenIndex = NamingCols("n", hiddenIndex, 0)
@@ -483,118 +487,153 @@ MLP = function(eta, numberNeurons, dataSet, outerloop, initialHiddenWeights, ini
   # Output Index
   outputIndex = matrix(0, nrow = nrow(dataSet), ncol = 1) 
   
-  # Error of the Output Layer multiplied by the derivative of the integration function
+  # Error of the Output Layer
   errorOutput = matrix(0, nrow = nrow(dataSet), ncol = 1)
-  
-  # The difference between the target value and the output
-  difference = matrix(0, nrow = nrow(dataSet), ncol = 1)
   
   # Key dimensions for calculations
   numberAttributeVariables = ncol(dataSet) - 2
   numberObservations = nrow(dataSet)
   
-  # Current output correction (used to optimise calculations)
-  currentOutputCorrection = matrix(0, nrow = numberNeurons + 1, ncol = 1, byrow = FALSE)
-  currentOutputCorrection = NamingRows("n", currentOutputCorrection, 0)
-  
-  currentHiddenCorrection = matrix(0, nrow = ncol(dataSet) - 1, ncol = numberNeurons + 1, byrow = FALSE)
-  currentHiddenCorrection  = NamingRows("w", currentHiddenCorrection, 0)
-  currentHiddenCorrection  = NamingCols("n", currentHiddenCorrection, 0)
-  
-  # Previous Output correction (for momentum convergance)
+  # Previous Errors (for momentum convergance)
   previousOutputCorrection = matrix(0, nrow = numberNeurons + 1, ncol = 1, byrow = TRUE)
-  previousOutputCorrection = NamingRows("n", previousOutputCorrection, 0)
+  previousOutputCorrection = NamingRows("n", previousOutputCorrection,0)
   
   previousHiddenCorrection = matrix(0, nrow = ncol(dataSet) - 1, ncol = numberNeurons + 1, byrow = TRUE)
-  previousHiddenCorrection  = NamingRows("w", previousHiddenCorrection, 0)
-  previousHiddenCorrection  = NamingCols("n", previousHiddenCorrection, 0)
-  
-  errorIndexing = matrix(NA, outerloop, ncol = 1)
-  
-  
+  previousHiddenCorrection  = NamingRows("w", previousHiddenCorrection,0)
+  previousHiddenCorrection  = NamingCols("n", previousHiddenCorrection,0)
   
   # Part 2: Finding the weights  ------------------------------------------------------------------------------------------------------------------
-  
-  i=1
-  l=1
   
   for (i in 1:outerloop){
     success = 0
     for (l in 1:nrow(dataSet)) {
       # Calculating Indexes
-      hiddenIndex[l, 2:ncol(hiddenIndex)] = 1/(1 + exp(-(dataSet[l, 1:(numberAttributeVariables + 1)] %*% hiddenLayerWeights[, 2:ncol(hiddenLayerWeights)])))
-      outputIndex[l] =  1/(1 + exp(-(hiddenIndex[l, ] %*% outputLayerWeights)))
+      hiddenIndex[l, 2:ncol(hiddenIndex)] = 1/(1 + exp(-(dataSet[l, 0:(numberAttributeVariables + 1)] %*% hiddenLayerWeights[, 2:ncol(hiddenLayerWeights)])))
+      outputIndex[l] =  1/(1 + exp(-(sum(hiddenIndex[l, ] %*% outputLayerWeights))))
+      
+      # Calculating Errors
+      errorOutput[l] = dataSet[l, ncol(dataSet)] - outputIndex[l]
+      errorHidden[l, ] = errorOutput[l] * outputLayerWeights
       
       if (learningFlag == 1) {
-        # AdalineLearningFlag = 0 means that we are using a Perceptron-like learning algorithm (i.e. only update when wrong)
-        # if (AdalineLearningFlag == 0){
-        #   if ((outputIndex[l] < 0.5) && (dataSet[l, ncol(dataSet)] < 0.5) || ((outputIndex[l]) >= 0.5) && (dataSet[l, ncol(dataSet)] >= 0.5)) {
-        #     errorOutput[l] = 0
-        #     errorHidden[l, ] = 0
-        #   } else {
-        #     Difference[l] = (dataSet[l, ncol(dataSet)] - outputIndex[l])
-        #     errorOutput[l] = Difference[l] *  outputIndex[l] * (1 - outputIndex[l])
-        #     errorHidden[l, ] = errorOutput[l] * outputLayerWeights * as.vector(hiddenIndex[l, ] * (hiddenIndexSubstraction - hiddenIndex[l,]))
-        #   }
-        # } else {
-          # Calculating Errors in Adaline-case
-          difference[l] = (dataSet[l, ncol(dataSet)] - outputIndex[l])  
-          errorOutput[l] = - difference[l] * outputIndex[l] * (1 - outputIndex[l])
-          errorHidden[l, ] = errorOutput[l] * outputLayerWeights * as.vector(hiddenIndex[l, ] * (hiddenIndexSubstraction - hiddenIndex[l,]))
-          # errorHidden[l, 2:ncol(errorHidden)] = errorOutput[l] * outputLayerWeights * as.vector(hiddenIndex[l, 2:ncol(hiddenIndex)] * (hiddenIndexSubstraction - hiddenIndex[l, 2:ncol(hiddenIndex)]))
-        #}
-        
-        
         # Recalibrating weights
-        #Calculate the Correction:
-        currentOutputCorrection = eta * hiddenIndex[l, ] * errorOutput[l] + momentumConstant * previousOutputCorrection
-        
-        currentHiddenCorrection = eta * t(dataSet[l, 1:(ncol(dataSet) - 1)]) %*% errorHidden[l, ] + momentumConstant * previousHiddenCorrection
-        currentHiddenCorrection = NamingRows("w", currentHiddenCorrection, 0)
-
-        # Update the weights:
-        outputLayerWeights = outputLayerWeights - currentOutputCorrection 
-        hiddenLayerWeights = hiddenLayerWeights - currentHiddenCorrection 
-
+        outputLayerWeights = outputLayerWeights + eta * hiddenIndex[l, ] * errorOutput[l] * outputIndex[l] * (1 - outputIndex[l]) + momentumConstant * previousOutputCorrection
+        hiddenLayerWeights = hiddenLayerWeights + eta * as.vector(dataSet[l, 1:(ncol(dataSet) - 1)]) * +
+          t(as.vector(hiddenIndex[l, ] * (hiddenIndexSubstraction - hiddenIndex[l, ])) * t(hiddenLayerWeights) *+
+              errorOutput[l] * outputIndex[l] * + (1 - outputIndex[l])) + momentumConstant * previousHiddenCorrection
         # Recording previous weights
-        previousOutputCorrection = currentOutputCorrection  
-        previousHiddenCorrection = currentHiddenCorrection
-        
-      } else {
-        difference[l] = -(dataSet[l, ncol(dataSet)] - outputIndex[l]) # We still want to know the difference even when we're not learning
+        previousOutputCorrection = eta * hiddenIndex[l, ] * errorOutput[l] * outputIndex[l] * (1 - outputIndex[l])  
+        previousHiddenCorrection = eta * as.vector(dataSet[l, 1:(ncol(dataSet) - 1)]) * +
+          t(as.vector(hiddenIndex[l, ] * (hiddenIndexSubstraction - hiddenIndex[l, ])) * t(hiddenLayerWeights) *+
+              errorOutput[l] * outputIndex[l] * + (1 - outputIndex[l])) 
+          
       }
       
-      if ((outputIndex[l] < 0.50) && (dataSet[l, ncol(dataSet)] < 0.50) || ((outputIndex[l]) >= 0.50) && (dataSet[l, ncol(dataSet)] >= 0.50)) {
+      if ((outputIndex[l] < 0.5) & (dataSet[l, ncol(dataSet)] < 0.5) | ((outputIndex[l]) >= 0.5) & (dataSet[l, ncol(dataSet)] >= 0.5)) {
         success = success + 1
       }
       
     }
-  errorIndexing[i] = sum(1/2*difference^2)
-  print(success)
-  print(errorIndexing[i])
   }
-  outputIndex = xts(outputIndex, order.by = index(dataSet))
+  
+  
   success = success / nrow(dataSet)
-  Results = list(success = success, hiddenLayerWeights = hiddenLayerWeights, outputLayerWeights = outputLayerWeights, outputIndex = outputIndex, errorOutput = errorOutput,  errorIndexing =  errorIndexing, difference = difference) 
+  Results = list(success = success, hiddenLayerWeights = hiddenLayerWeights, outputLayerWeights = outputLayerWeights) 
   return(Results)
+}
+
+PLR = function(eta, dataSet, outerloop, flagPerceptronLearning, stdRandomWeight, learningFlag){
+  
+  # Description: No Hidden Layer Perceptron Logistic Regression optimised with gradient descent optimisation. 
+  
+  # Authors: Michal Stachnio & Jérôme Voelke
+  
+  # Variables:
+  #           eta             = Learning rate
+  #           dataSet         = Observations. Need to have x_0 = 1 as first column, attribute variables in the middle and the result (y) as the last column
+  #           outerloop       = number of times the network learns over the dataSet. A higher number is advised due to slow learning
+  #           stdRandomWeight = Standard deviation used for the initialisation of the random weights
+  #           learningFlag    = if 1, the algorithm updates the weights
+  
+  # Outputs:
+  #           success            = rate with which the outputed weight are able to predict the target variable accuratelly
+  #           hiddenLayerWeights = weights for all the input data for all the neurons
+  #           outputLayerWeights = weights for the outputs of the neurons
+  
+  
+  # Key dimensions for calculations
+  numberAttributeVariables = ncol(dataSet) - 2
+  numberObservations = nrow(dataSet)
+  
+  # Creating the weight vector
+  randomWeight = rnorm(n = ncol(dataSet) -1 , mean = 0, sd = stdRandomWeight) # The value of the initial weights. note: we can randomize this later on
+  weightVector = matrix(randomWeight, # define the vector of weights
+                        nrow = numberAttributeVariables+1, # we Create a weight for each dependent variable, plus one for w0.
+                        ncol= 1,
+                        byrow = TRUE)
+  # naming the rows in weightVector
+  weightVector = NamingRows("w", weightVector, 0)
+  
+  # Defining the key variables for the Logistic Regression Algorithm
+  index = matrix(0, 1, numberObservations * outerloop)
+  indexPrediction = 0 
+  weightMatrix = matrix(NA, nrow(weightVector),  numberObservations * outerloop) # WeightMatrix is used to record the weights through the various iterations.
+  weightMatrix[, 1] = weightVector
+  weightMatrix = NamingRows("w", weightMatrix, 0)
+  error = 0
+  predictionAccuracy = matrix(NA, numberObservations,  1)
+  lastError = 0 
+  l = 1
+  i = 1
+  
+  # Core Algorithm: reweighting based on observation data
+  for (l in 1 : outerloop) {
+    for (i in 1 : numberObservations) {
+      weightMatrix [,i + (l - 1) * numberObservations] = weightVector
+      index[i] = 1/(1 + exp(-(sum(coredata(dataSet[i,0 : numberAttributeVariables + 1]) %*% weightVector )))) 
+      if (index[i] < 0.5) {
+        indexPrediction[i] = 0
+      } else {
+        indexPrediction[i] = 1
+      }
+      error[i] = dataSet[i, numberAttributeVariables + 2] - flagPerceptronLearning * indexPrediction[i] + (-1 + flagPerceptronLearning) * index[i] # flagPerceptronLearning defines whether we use an ADALINE or Perceptron-like algorithm
+      # Also tests whether our prediction was accurate and stores it in predictionAccuracy
+      if ((index[i] < 0.5) & (dataSet[i, numberAttributeVariables + 2] < 0.5) | (( index[i]) >= 0.5) & (dataSet[i, numberAttributeVariables + 2] >= 0.5)) {
+        predictionAccuracy[i, ] = 1
+      } else {
+        predictionAccuracy[i, ] = 0
+        lastError = i + (l - 1) * numberObservations
+      }
+      if (learningFlag == 1) {
+        weightVector =  weightVector + eta * error[i] * index[i] * (1 - index[i]) * as.vector(dataSet[i, 0 : numberAttributeVariables + 1]) #Update
+      }
+    }
+  }
+  
+  success = sum(predictionAccuracy) / nrow(dataSet)
+  Results = list(success = success, weightVector = weightVector) 
+  return(Results) 
+  
 }
 
 
 
 # Testing whether the weights are reused in the correct way
-# oldResult = MLP(eta, numberNeurons, Data_Learning, outerloop, initialHiddenWeights, initialOutputWeights, learningFlag, momentumConstant, AdalineLearningFlag)
-# 
-# initialHiddenWeights = oldResult$hiddenLayerWeights
-# initialOutputWeights = oldResult$outputLayerWeights
-# learningFlag = 0
-# 
-# newResult = MLP(eta, numberNeurons, Data_Learning, outerloop, initialHiddenWeights, initialOutputWeights, learningFlag, momentumConstant)
-# 
-# if (oldResult$success == newResult$success){
-#   print("all good")
-# }
+ResultMLP = MLP(eta, numberNeurons, Data_Learning, outerloop, initialHiddenWeights, initialOutputWeights, learningFlag, momentumConstant)
+oldResult = ResultMLP
 
-# Part 3b: NOT IMPORTANT !!!Defining the Optimal Paramters -----------------------------------------------------------------------------------------------------
+initialHiddenWeights = ResultMLP$hiddenLayerWeights
+initialOutputWeights = ResultMLP$outputLayerWeights
+learningFlag = 0
+
+ResultMLP = MLP(eta, numberNeurons, Data_Learning, outerloop, initialHiddenWeights, initialOutputWeights, learningFlag, momentumConstant)
+newResult = ResultMLP
+
+if (oldResult$success == newResult$success){
+  print("all good")
+}
+
+# Part 3b: Defining the Optimal Paramters -----------------------------------------------------------------------------------------------------
 # We're going to reuse the parameters from the technical indicator paper
 # We attempt to find for which parameters we get the best results
 
@@ -610,225 +649,43 @@ MLP = function(eta, numberNeurons, dataSet, outerloop, initialHiddenWeights, ini
 # }
 
 
-# Part 4a: Learning - Defining best guess ------------------------------------------------------------------------------------------
+# Part 3d: Learning -----------------------------------------------------------------------------------------------------
 
-# We simulate the optimisation algorithm over random weights to find the weights with the best potential
-# Initial parameters for the testing
-outerloop = 40 # Should be low, we are trying to find a good spot to start the optimisation
-numberTests = 10
-numberNeurons = 30
-stdRandomGeneration = 1
-dataSet = Data_Learning
-initialHiddenWeights = rnorm(n = (ncol(dataSet) - 1) * (numberNeurons + 1), mean = 0, sd = stdRandomGeneration) # The value of the initial weights.
-initialOutputWeights = rnorm(n = numberNeurons + 1, mean = 0, sd = stdRandomGeneration)
+numberNeurons = 10
+initialHiddenWeights = rnorm(n = (ncol(Data_Learning) - 1) * (numberNeurons + 1), mean = 0, sd = 1) # The value of the initial weights.
+initialOutputWeights = rnorm(n = numberNeurons + 1, mean = 0, sd = 1)
+outerloop = 10 # officially should be 5000
 eta = 0.1 # error adaptation coefficient
 learningFlag = 1
-momentumConstant = 0.7
+momentumConstant = 0.3
 
-# We simulate the optimisation algorithm over random weights to find the weights with the best potential
+# We simulate the optimisation algorithm over random weights to find the best local minimum
 bestRate = 0
-for (i in 1:numberTests) {
-  initialHiddenWeights = rnorm(n = (ncol(dataSet) - 1) * (numberNeurons + 1), mean = 0, sd = 1) # The value of the initial weights.
+for (i in 1:5) {
+  initialHiddenWeights = rnorm(n = (ncol(Data_Learning) - 1) * (numberNeurons + 1), mean = 0, sd = 1) # The value of the initial weights.
   initialOutputWeights = rnorm(n = numberNeurons + 1, mean = 0, sd = 1)
-  ResultMLPLearning = MLP(eta, numberNeurons, dataSet, outerloop, initialHiddenWeights, initialOutputWeights, learningFlag, momentumConstant)
+  ResultMLPLearning = MLP(eta, numberNeurons, Data_Learning, outerloop, initialHiddenWeights, initialOutputWeights, learningFlag, momentumConstant)
   # Record the results if this simulation obtains better results
   if (ResultMLPLearning$success > bestRate) {
-    BestGuessMLPLearning = ResultMLPLearning
+    BestResultMLPLearning = ResultMLPLearning
     bestRate = ResultMLPLearning$success
   }
-  print(bestRate)
 }
 bestRate
-
-errorIndexing_1 = BestGuessMLPLearning$errorIndexing
-
-
-
-# Part 4b:Learning - Optimising our best guess ------------------------------------------------------------------------------------------
-
-# Initial Parameters are the same as when we tried to find the "best guess"
-outerloop = 100 # should be 5000
-# Carry forward our "best guess weights":
-initialHiddenWeights =  BestGuessMLPLearning$hiddenLayerWeights
-initialOutputWeights = BestGuessMLPLearning$outputLayerWeights
-
-# We first optimise with momentum accelaration. If we notice that we are oscillating, we reduce the momentum acceleration to 0.
-ResultMLPLearning = MLP(eta, numberNeurons, Data_Learning, outerloop, initialHiddenWeights, initialOutputWeights, learningFlag, momentumConstant)
-ResultMLPLearning$success
-
-errorIndexing_2 = ResultMLPLearning$errorIndexing
-
-# Final optimisation without Momentum Acceleration:
-outerloop = 7000
-initialHiddenWeights = ResultMLPLearning$hiddenLayerWeights
-initialOutputWeights = ResultMLPLearning$outputLayerWeights
-momentumConstant = 0
-ResultMLPLearning = MLP(eta, numberNeurons, Data_Learning, outerloop, initialHiddenWeights, initialOutputWeights, learningFlag, momentumConstant)
-ResultMLPLearning$success
-
-errorIndexing_3 = ResultMLPLearning$errorIndexing
-
-errorIndex = append(errorIndexing_1, errorIndexing_2, after = length(errorIndexing_1))
-errorIndex = append(errorIndex     , errorIndexing_3, after = length(errorIndex))
-
-append(c(1,2,3), c(1,2,4, after = length(c(1,2,3))))
-
-# This graph illustrates how the squared sum or errors changes while going over the learning data.
-plot(errorIndex, type="p", col="black")
-# plot(ResultMLPLearning$errorIndexing, type="p", col="black")
-
-
-# Distribution of outputindex
-hist(ResultMLPLearning$outputIndex)
-plot(ResultMLPLearning$outputIndex, type="o", col="black", pch=20, cex=0.2)
-
-
 
 # Part 4: Testing -----------------------------------------------------------------------------------------------------
 
 # New Parameters:
-# We carry forward our "Optimised Weigths"
-initialHiddenWeights = ResultMLPLearning$hiddenLayerWeights 
-initialOutputWeights = ResultMLPLearning$outputLayerWeights
-learningFlag = 0 # Weights are no longer being updated
-outerloop = 1
-dataSet = Data_Testing
-
-# Doing the Testing
-ResultMLPTesting = MLP(eta, numberNeurons, dataSet, outerloop, initialHiddenWeights, initialOutputWeights, learningFlag, momentumConstant)
-ResultMLPTesting$success
-
-# Test wether the weights did not change:
-if (initialOutputWeights[1] == (ResultMLPTesting$outputLayerWeights[1])) {
-  print("Weights have not changed")
-} else {
-  print("Weights have changed")
-}
+initialHiddenWeights = BestResultMLPLearning$hiddenLayerWeights
+initialOutputWeights = BestResultMLPLearning$outputLayerWeights
 
 
-# Plot the error terms (i.e. half of squared difference between index and data).
-squaredErrors = 1/2*(ResultMLPTesting$difference)^2
-plot(squaredErrors, type="p", col="black")
 
-# Histogram of the distribution of error
-hist(ResultMLPTesting$difference)
-# Histogram of the distribution of the absolute error --> (See whether error is normally distributed (note: can be tested with JAcque BErra))
-hist(abs(ResultMLPTesting$difference))
-# Histogram of the error measure (the value we are trying to minimize) -->
-hist(squaredErrors)
+#Define the new Set of data:
 
-# Cumulative error
-plot(CumulativeSum(ResultMLPTesting$difference), type="o", col ="black")
-# Cumulative Absolute error (To see whether errors are concentrated around time clusters)
-plot(CumulativeSum(abs(ResultMLPTesting$difference)), type="o", col ="black") 
-
-
-# Distribution of outputindex
-hist(ResultMLPTesting$outputIndex)
-plot(ResultMLPTesting$outputIndex, type="o", col="black", pch=20, cex=0.2)
-
-# Do a t-stat test to see whether our model has predictive power.
-
-
-# Do a table that illustrates our rate of mistake depending on what the index predicts: -------------------------------
-
-# Index (i.e. probability of movement up):
-ResultMLPTesting$outputIndex
-# Actual Movement
-Data_Testing$spEvolution
-# Creating a "Prediction" Vector based on the Index output
-predictionVector = xts(rep(0, nrow(ResultMLPTesting$outputIndex)), order.by = index(Data_Testing$spEvolution))
-for (i in 1:nrow(ResultMLPTesting$outputIndex)) {
-  if ((ResultMLPTesting$outputIndex[i] < 0.5) && (Data_Testing$spEvolution[i] < 0.5) || ((ResultMLPTesting$outputIndex[i]) >= 0.5) && (Data_Testing$spEvolution[i] >= 0.5)) {
-    predictionVector[i] = 1
-  } else {
-    predictionVector[i] = 0 
-  }
-}
-predictionVector
-plot(CumulativeSum(predictionVector), type="o", col="black", pch=20, cex=0.2)
-
-accuraccyDistributionData = merge(Data_Testing$spEvolution, ResultMLPTesting$outputIndex, predictionVector)
-anyNA(accuraccyDistributionData)
-numberBars = 20
-accuracyDistributionVector = matrix(NA, nrow = numberBars, ncol = 3)
-colnames(accuracyDistributionVector) = c("probability", "occurences", "total")
-accuracyDistributionVectorRowNames = matrix(0, nrow(accuracyDistributionVector), ncol =1)
-step = 1/numberBars
-numberOccurences = 0
-
-i=1
-temp = 1/numberBars
-for (i in 1:numberBars) {
-  occurences = 0
-  total = 0
-  for (l in 1:nrow(accuraccyDistributionData)){
-    if ((as.double(coredata(accuraccyDistributionData[l,2])) > (temp - step)) && (as.double(coredata(accuraccyDistributionData[l,2])) < temp)){
-      occurences = occurences + as.double(coredata(accuraccyDistributionData[l,1]))
-      total = total + 1
-    }
-  }
-  if (total == 0) {
-      accuracyDistributionVector[i, 1] = NA
-    } else {
-      accuracyDistributionVector[i, 1] = occurences/total
-    }
-  accuracyDistributionVector[i, 2] = occurences
-  accuracyDistributionVector[i, 3] = total
-  accuracyDistributionVectorRowNames[i] = toString(paste(temp - step, "to",temp))
-  #print(temp)
-  temp = temp + step
-}
-rownames(accuracyDistributionVector) = accuracyDistributionVectorRowNames
-
-# Creating a line for comparison:
-comparison = matrix(NA, nrow = nrow(accuracyDistributionVector), ncol = 1)
-
-temp = 1/numberBars
-step = 1/numberBars
-for (i in 1:numberBars) {
-  if (i == 0) {
-    comparison[i] = 0
-  } else {
-  comparison[i] = temp
-  }
-  temp = temp + step
-}
-
-
-accuracyDistributionVector = accuracyDistributionVector[complete.cases(accuracyDistributionVector), ]
-comparison = comparison[complete.cases(accuracyDistributionVector), ]
-
-# This graphs allows to examine whether a higher value in our index correlates with a higher probability of the index to act accordingly
-bar <- barplot(accuracyDistributionVector[,1], ylim=c(0,1))
-lines(x = bar, y = comparison)
-# ------------------------------------------------------------------------------------------------------------------------------------------------------
-
-# Table that shows success rate per year
-accuraccyDistributionData 
-spReturn = diff(coreData$SP_500)/lag(coreData$SP_500)
-hist(spReturn, breaks = 100)
-
-conditionalReturnTS = merge(accuraccyDistributionData, spReturn)
-conditionalReturnTS = conditionalReturnTS[complete.cases(conditionalReturnTS), ]
-
-# hist when index is above a certain threshold:
-threshold = 0.8 # note: between 0.5 and 1
-up = conditionalReturnTS[conditionalReturnTS[,2] > threshold ]
-hist(up[,4], breaks = 5)
-mean(up[,4])
-# hist when the index is below the threshold
-down = conditionalReturnTS[conditionalReturnTS[,2] < (1 - threshold) ]
-hist(down[,4], breaks = 5)
-mean(down[,4])
-# hist when index is between the threshold
-middle = conditionalReturnTS[conditionalReturnTS[,2] > (1 - threshold)]
-middle = conditionalReturnTS[conditionalReturnTS[,2] < threshold]
-hist(middle[,4], breaks = 5)
-mean(middle[,4])
 
 #Recombine the data and remove the NA:
-coreData_Testing$Constant = xts(x = rep(1, length(coreData_Testing$spEvolution)), order.by = index(coreData_Testing))
+coreData_Testing$Constant = xts(rep(1, length(coreData_Testing$Evolution)), order.by = index(coreData_Testing))
 
 # Inputs
 attributeVariablesTesting = Data_Testing[, 2:ncol(Data)] # matrix(rnorm(numberObservations * numberAttributeVariables, mean = 0, sd = 1), nrow = numberAttributeVariables, ncol = numberObservations)# !!!!!!!!! Need to define this from the data !!!!!!!!!!
@@ -894,8 +751,6 @@ for (i in 1:nrow(Bets)) {
   }
 }
 Success/nrow(Bets)
-
-
 
 
 
